@@ -1,0 +1,6 @@
+You are helping me post an Instagram Reel for BackIn, an iPhone habit app where you post photo proof of your habits and your friends approve it or send it back, so you keep streaks with your crew. The app is not out yet; the call to action is to join the waitlist (link in bio). Write 5 caption options (hook first line, under 150 characters each, casual, no corporate tone), 20 hashtags (mix of big, mid and niche fitness/habit/accountability tags), 3 on-screen text hook ideas, the best posting time for a US Gen Z / college audience, and a short alt text. Here is the video in detail:
+
+Title: "I tried to skip the gym today" (Reel 2). 18 seconds, vertical, dark navy look, voiceover with word-by-word captions.
+0-2s: Moody dark gym with dumbbell racks. White text: "I tried to skip the gym today."
+2-5s: An iPhone lock screen, Tuesday November 19, 6:42. Two notifications pile in: "Maya - Morning Crew: no gym proof yet? (eyes)" and "Sam - Morning Crew: your streak dies at midnight (skull)". Voice: "My friends caught me in four minutes."
+5-9s: App group screen with Morning Crew, Book Club, Gym Rats cards and streak counts, and a red alert pill "Alex has not checked in". Caption: "your whole crew sees when you dont

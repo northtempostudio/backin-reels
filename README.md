@@ -9,3 +9,6 @@ The finished run shows a 7-day private link for Buffer, and the video is downloa
 - `guard/` – upload script with the R2 free-tier guard (refuses at 30% of any limit)
 - Assets (music, footage, voice) live in the private repo `backin-reels-assets`
 - Optional footage from Google Drive: type the exact file name from the **BackIn Content** folder. Google sign-in is keyless (Workload Identity Federation) and read-only.
+
+## Dashboard prompts
+Each reel has a detailed AI prompt in `video/about/<Reel>.md`. The upload step saves it next to the video, and the private dashboard shows it with a **Copy AI prompt** button for captions and hashtags. New reel? Add its `about` file.

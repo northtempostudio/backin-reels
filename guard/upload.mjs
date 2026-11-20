@@ -6,7 +6,7 @@
 // Credentials come from the macOS Keychain (account "backin-reels"), or env vars in the cloud:
 //   CF_REELS_USAGE, CF_REELS_S3_ID, CF_REELS_S3_SECRET
 import { createHash, createHmac } from "node:crypto";
-import { readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync, existsSync } from "node:fs";
 import { basename } from "node:path";
 import { execFileSync } from "node:child_process";
 import { getUsage, describe, ACCOUNT_ID, BUCKET, MAX_FILE_BYTES } from "./usage.mjs";
@@ -65,7 +65,7 @@ export async function bufferLink(key) {
 
 async function main() {
   const arg = process.argv[2];
-  if (!arg) { console.error("usage: node upload.mjs <video.mp4> | --usage"); process.exit(2); }
+  if (!arg) { console.error("usage: node upload.mjs <video.mp4> [--about prompt.md] [--title Name] [--source Claude] | --usage"); process.exit(2); }
 
   // Guard 1: usage must be readable and under 30% on every limit (fails closed).
   const usage = await getUsage(secret("CF_REELS_USAGE", "cf-reels-usage"));
@@ -95,6 +95,18 @@ async function main() {
     process.exit(6);
   }
   console.log(`\nUploaded ${(size / 1e6).toFixed(1)} MB as ${key}`);
+
+  // Dashboard sidecar: title + detailed AI prompt, stored next to the video as <key>.json.
+  const flag = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : undefined; };
+  const stem = basename(arg).replace(/\.\w+$/, "");
+  const here = new URL(".", import.meta.url).pathname;
+  const aboutFile = flag("--about") ?? [`${here}../video/about/${stem}.md`, `${here}../instagram-video/about/${stem}.md`].find((p) => existsSync(p));
+  const prompt = aboutFile && existsSync(aboutFile) ? readFileSync(aboutFile, "utf8").trim() : "";
+  const title = flag("--title") ?? (prompt.match(/^Title: "([^"]+)"/m)?.[1] || stem.replace(/[-_]/g, " "));
+  const meta = Buffer.from(JSON.stringify({ title, prompt, source: flag("--source") ?? (process.env.GITHUB_ACTIONS ? "GitHub" : "Mac"), file: basename(arg) }));
+  const mput = sign({ method: "PUT", key: `${key}.json`, headers: { "content-type": "application/json" }, payloadHash: sha(meta), id, secretKey });
+  const mres = await fetch(mput.url, { method: "PUT", headers: mput.headers, body: meta });
+  console.log(mres.ok ? `Dashboard info saved (${prompt ? "with" : "without"} AI prompt)` : `Dashboard info not saved: ${mres.status}`);
   console.log(`Private link for Buffer (expires in 7 days, file auto-deletes then):\n${await bufferLink(key)}`);
 }
 
