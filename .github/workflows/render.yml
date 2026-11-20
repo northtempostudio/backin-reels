@@ -1,0 +1,101 @@
+name: Render reel
+run-name: "Render ${{ inputs.reel }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      reel:
+        description: Which reel to render
+        type: choice
+        default: BackInReel
+        options: [BackInReel, BackInReel2, BackInReel3, BackInReel4, BenReel, ProA, ProB, ProC]
+      drive_footage:
+        description: "Optional: exact name of a video in the BackIn Content Drive folder to use as the phone footage"
+        type: string
+        default: ""
+      upload:
+        description: Upload to the reels bucket and make a 7-day Buffer link
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: render-${{ inputs.reel }}
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get render assets (private repo)
+        uses: actions/checkout@v4
+        with:
+          repository: northtempostudio/backin-reels-assets
+          token: ${{ secrets.ASSETS_TOKEN }}
+          path: assets
+      - run: mv assets/public video/public
+
+      - name: Sign in to Google (no key file)
+        if: inputs.drive_footage != ''
+        id: google
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/1031455712284/locations/global/workloadIdentityPools/github/providers/backin-reels
+          service_account: backin-reels-drive@pulse-habittracker.iam.gserviceaccount.com
+          token_format: access_token
+          access_token_scopes: https://www.googleapis.com/auth/drive.readonly
+
+      - name: Pull footage from Drive
+        if: inputs.drive_footage != ''
+        env:
+          TOKEN: ${{ steps.google.outputs.access_token }}
+          NAME: ${{ inputs.drive_footage }}
+        run: |
+          q=$(jq -rn --arg n "$NAME" '"name = \"" + ($n|gsub("\"";"\\\"")) + "\" and trashed = false" | @uri')
+          id=$(curl -sf -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files?q=$q&fields=files(id,name,size)" | jq -r '.files[0].id // empty')
+          [ -n "$id" ] || { echo "::error::No Drive file named '$NAME' that the robot can see"; exit 1; }
+          curl -sfL -H "Authorization: Bearer $TOKEN" "https://www.googleapis.com/drive/v3/files/$id?alt=media" -o video/public/footage.mp4
+          ls -la video/public/footage.mp4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: video/package-lock.json
+
+      - name: Install
+        working-directory: video
+        run: npm ci
+
+      - name: Render
+        working-directory: video
+        run: npx remotion render src/index.ts "${{ inputs.reel }}" "out/${{ inputs.reel }}.mp4" --codec h264 --crf 18
+
+      - name: Keep a copy for 3 days
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.reel }}
+          path: video/out/${{ inputs.reel }}.mp4
+          retention-days: 3
+
+      - name: Upload through the R2 free-tier guard
+        if: inputs.upload
+        env:
+          CF_REELS_USAGE: ${{ secrets.CF_REELS_USAGE }}
+          CF_REELS_S3_ID: ${{ secrets.CF_REELS_S3_ID }}
+          CF_REELS_S3_SECRET: ${{ secrets.CF_REELS_S3_SECRET }}
+          REELS_LINK_SECRET: ${{ secrets.REELS_LINK_SECRET }}
+        run: |
+          node guard/upload.mjs "video/out/${{ inputs.reel }}.mp4" | tee upload.txt
+          {
+            echo "## ${{ inputs.reel }}"
+            echo '```'
+            cat upload.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
