@@ -107,7 +107,9 @@ async function main() {
   const mput = sign({ method: "PUT", key: `${key}.json`, headers: { "content-type": "application/json" }, payloadHash: sha(meta), id, secretKey });
   const mres = await fetch(mput.url, { method: "PUT", headers: mput.headers, body: meta });
   console.log(mres.ok ? `Dashboard info saved (${prompt ? "with" : "without"} AI prompt)` : `Dashboard info not saved: ${mres.status}`);
-  console.log(`Private link for Buffer (expires in 7 days, file auto-deletes then):\n${await bufferLink(key)}`);
+  // GitHub logs on a public repo are world-readable: never print the private link there.
+  if (process.env.GITHUB_ACTIONS) console.log("Private link not printed here (public log). It is on the dashboard.");
+  else console.log(`Private link for Buffer (expires in 7 days, file auto-deletes then):\n${await bufferLink(key)}`);
 }
 
 export { sign, secret };
